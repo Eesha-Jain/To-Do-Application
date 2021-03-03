@@ -18,7 +18,7 @@ var message = "";
 var navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/signUp'>Sign Up</a></li><li id='right'><a href='/logIn'>Log In</a></li>";
 var bodyText = "<p class='center'>Please <a href='/logIn'>Log In</a> or <a href='/signUp'>Sign Up</a> to continue</p>"
 
-//MONGODB
+//USER
 var user = null;
 
 //ENCRYPTION
