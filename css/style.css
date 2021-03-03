@@ -1,0 +1,186 @@
+html, body {
+  background-color: white;
+  scroll-behavior: smooth;
+  font-family: 'Roboto', "Arial";
+  margin: 0px;
+  padding: 0px;
+}
+
+input[type=submit] {
+  font-family: "Roboto", "Arial";
+}
+
+h1 {
+  font-family: 'Indie Flower', 'Bebas Neue', 'Staatliches', 'Oswald', cursive;
+  font-size: 36px;
+}
+
+a {
+  text-decoration: none;
+  color: blueviolet;
+}
+
+:root {
+  --green: rgb(171, 255, 196);
+  --blue: rgb(147, 248, 255);
+  --highlight: #92dbf8;
+}
+
+::-moz-selection {
+  background-color: var(--highlight);
+}
+
+::selection {
+  background-color: var(--highlight);
+}
+
+/*NAVIGATION BAR*/
+.nav-bar {
+  list-style-type: none;
+  background-color: rgb(216, 216, 216);
+  margin: 0;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.nav-bar li {
+  margin: 0 5px;
+  float: left;
+  padding: 10px 15px;
+  border-radius: 5px;
+}
+
+.nav-bar li:hover {
+  background-color: white;
+}
+
+.nav-bar li a {
+  width: wrap-content;
+  color: black;
+  text-decoration: none; 
+}
+
+#right {
+  float: right;
+}
+
+#right:hover {
+  background-image: linear-gradient(to right, var(--green), var(--blue));
+}
+
+/*TITLE*/
+#welcome {
+  background-image: linear-gradient( rgba(171, 255, 196, 0.6), rgba(147, 248, 255, 0.6)), url("images/Urban.png");
+  text-align: center;
+  padding: 50px;
+  margin: 0px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 70px;
+  font-weight: 900;
+}
+
+/*TO-DO PAGE*/
+.tasks {
+  margin: 10px;
+}
+
+#addTask {
+  width: 70%;
+  margin-right: 1%;
+}
+
+.taskSubmit {
+  width: 25%;
+}
+
+.pTitle {
+  text-align: center;
+  text-decoration: underline;
+}
+
+.cards {
+  list-style-type: none;
+  margin: 0px;
+  padding: 0px;
+}
+
+.card {
+  padding: 10px;
+  background-color: rgb(246, 246, 246);
+  margin: 4px;
+  border: none;
+  text-align: left;
+  font-family: "Roboto", "Arial";
+  cursor: pointer;
+  width: 70%;
+  margin-right: 1%;
+}
+
+.cardSubmit {
+  width: 25%;
+  cursor: pointer;
+  background-color: rgb(246, 246, 246);
+  border: none;
+  padding: 10px;
+  font-weight: 400;
+}
+
+.center {
+  text-align: center;
+}
+
+/*FORM INFORMATION*/
+.log-in-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.form {
+  height: wrap-content;
+  width: 70%;
+  background-color: rgb(246, 246, 246);
+  margin: 0px;
+  padding: 0px;
+  padding-bottom: 10px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.title {
+  text-align: center;
+  background: linear-gradient(to bottom right, var(--green), var(--blue));
+  margin: 0px;
+  padding: 16px;
+  border-radius: 10px 10px 0px 0px;
+}
+
+.sign-up-form {
+  padding: 10px;
+}
+
+input {
+  outline: none;
+  border: 1px solid gray;
+  border-radius: 3px;
+  padding: 3px;
+  width: 98%;
+  margin: 1px;
+}
+
+.submit {
+  width: 100%;
+  border: none;
+  outline: none;
+  padding: 10px;
+  background-color: rgb(206, 253, 255);
+}
+
+.submit:hover {
+  background-color: rgb(178, 252, 255);
+}
+
+#message {
+  color: red;
+}

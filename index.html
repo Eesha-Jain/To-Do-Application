@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width">
+	<title>Home | To-Do</title>
+	<link href="css/style.css" rel="stylesheet" type="text/css" />
+
+	<!--Google Fonts-->
+	<link rel="preconnect" href="https://fonts.gstatic.com">
+	<link href="https://fonts.googleapis.com/css2?family=Staatliches&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;900&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap" rel="stylesheet">
+
+  <!--Script sheet-->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://kit.fontawesome.com/6981eea73f.js" crossorigin="anonymous"></script>
+  <script src="index.js"></script>
+</head>
+
+<body>
+  <ul class="nav-bar" id="nav-bar">
+    <li><a href="/">Home</a></li>
+    <li id="right"><a href="/signUp">Sign Up</a></li>
+    <li id="right"><a href="/logIn">Log In</a></li>
+  </ul>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var socket = io();
+
+      socket.on('change_login', function(data) {
+        document.getElementById('nav-bar').innerHTML = data.navigationBar;
+        document.getElementById('tasks').innerHTML = data.bodyText;
+        listen();
+      });
+    });
+
+    function listen() {
+      var cardsList = document.getElementsByClassName("card");
+      for (var i = 0; i < cardsList.length; i++) {
+        cardsList[i].addEventListener("click", listener.bind(null, cardsList, i), false)
+      }
+    }
+
+    function listener(cardsList, i) {
+      var info = cardsList[i].value;
+      document.getElementById("temp").innerHTML = "<form action='/clicked' id='formTemp' method='POST'><input name='submit' id='submitTemp' type='submit' value='" + info + "'></form>";
+
+      document.getElementById("submitTemp").click();
+    }
+  </script>
+
+  <div id="welcome">To-Do Website</div>
+  
+  <div class="tasks" id="tasks">
+    <p class="center">Please <a href="/logIn">Log In</a> or <a href="/signUp">Sign Up</a> to continue</p>
+  </div>
+
+  <div id="temp" style="display: none;">
+
+  </div>
+  <br>
+</body>
+</html>

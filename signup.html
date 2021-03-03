@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width">
+	<title>Sign-up | To-Do</title>
+	<link href="css/style.css" rel="stylesheet" type="text/css" />
+
+	<!--Google Fonts-->
+	<link rel="preconnect" href="https://fonts.gstatic.com">
+	<link href="https://fonts.googleapis.com/css2?family=Staatliches&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap" rel="stylesheet">
+
+  <!--Script sheet-->
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+  <ul class="nav-bar">
+    <li><a href="/">Home</a></li>
+    <li id="right"><a href="/signUp">Sign Up</a></li>
+    <li id="right"><a href="/logIn">Log In</a></li>
+  </ul>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var socket = io();
+      socket.on('change_message', function(data) {
+        document.getElementById('message').innerHTML = data.message;
+      });
+
+      socket.on('change_login', function(data) {
+        document.getElementById('nav-bar').innerHTML = data.navigationBar;
+        document.getElementById('tasks').innerHTML = data.tasks;
+      });
+    });
+  </script>
+
+	<div class="log-in-box">
+		<div class="form">
+			<h1 class="title">Sign-Up</h1>
+			<form action="/signUp" class="sign-up-form" method="POST" autocomplete="off">
+				<label for="fname">First Name:</label><br>
+        <input name="fname" type="text" required>
+
+        <br>
+        <br>
+                
+        <label for="lname">Last Name:  </label><br>
+        <input name="lname" type="text" required>
+
+        <br>
+        <br>
+                
+        <label for="username">UserName:  </label><br>
+        <input name="username" type="text" required>
+
+        <br>
+        <br>
+                
+        <label for="password">Password:  </label><br>
+        <input name="password" type="text" style="-webkit-text-security: disc;" required>
+
+        <br>
+        <br>
+
+        <input name="submit" type="submit" class="submit">
+        <p id="message" style="margin-bottom: 0;"></p>
+      </form>
+    </div>
+  </div>
+  <br>
+</body>
+</html>
