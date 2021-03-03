@@ -85,23 +85,17 @@ a {
 }
 
 #addTask {
-  width: 70%;
+  width: 74%;
   margin-right: 1%;
 }
 
 .taskSubmit {
-  width: 25%;
+  width: 24%;
 }
 
 .pTitle {
   text-align: center;
   text-decoration: underline;
-}
-
-.cards {
-  list-style-type: none;
-  margin: 0px;
-  padding: 0px;
 }
 
 .card {
@@ -110,14 +104,25 @@ a {
   margin: 4px;
   border: none;
   text-align: left;
-  font-family: "Roboto", "Arial";
   cursor: pointer;
-  width: 70%;
+  font-family: "Roboto", "Arial";
+  width: 68.5%;
   margin-right: 1%;
 }
 
+.cardNum {
+  padding: 10px;
+  background-color: rgb(246, 246, 246);
+  margin: 4px;
+  border: none;
+  max-width: 2%;
+  display: inline-block;
+  font-family: "Roboto", "Arial";
+}
+
+
 .cardSubmit {
-  width: 25%;
+  width: 24%;
   cursor: pointer;
   background-color: rgb(246, 246, 246);
   border: none;
@@ -127,6 +132,27 @@ a {
 
 .center {
   text-align: center;
+}
+
+.none {
+  color: rgb(167, 167, 167);
+  font-size: 14px;
+}
+
+.sorting {
+  display: grid;
+  grid-template-columns: auto auto auto auto;
+  margin: 15px 0px;
+  margin-right: 2px;
+  grid-column-gap: 10px;
+}
+
+.sort {
+  width: 100%;
+  background-color: rgb(207, 248, 233);
+  border: none;
+  padding: 10px 0px;
+  cursor: pointer;
 }
 
 /*FORM INFORMATION*/

@@ -6,25 +6,55 @@ let mongoose = require('mongoose');
 let http = require('http').Server(app);
 var crypto = require('crypto');
 var io = require('socket.io')(http);
-
-//MONGODB
-const MongoClient = require('mongodb').MongoClient;
-const mongo_username = process.env.MONGO_USERNAME;
-const mongo_password = process.env.MONGO_PASSWORD;
-const uri = `mongodb+srv://${mongo_username}:${mongo_password}@crm-app.38y5m.mongodb.net/numleaddb?retryWrites=true&w=majority`;
+const uri = process.env.URI;
 
 //CUSTOMIZATION
 var message = "";
 var navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/signUp'>Sign Up</a></li><li id='right'><a href='/logIn'>Log In</a></li>";
-var bodyText = "<p class='center'>Please <a href='/logIn'>Log In</a> or <a href='/signUp'>Sign Up</a> to continue</p>"
+var bodyText = "<p class='center'>Please <a href='/logIn'>Log In</a> or <a href='/signUp'>Sign Up</a> to continue</p>";
 
-//USER
+//MONGOOSE
+const UserSchema = new mongoose.Schema({
+  fname: {
+    type: String,
+    trim: true
+  },
+  lname: {
+    type: String,
+    trim: true
+  },
+  email: {
+    type: String,
+    trim: true
+  },
+  username: {
+   type: String,
+    trim: true
+  },
+  password: {
+    type: String,
+    trim: true
+  },
+  tasks: {
+    type: Array
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+})
+
+mongoose.connect(uri, { useUnifiedTopology: true, useNewUrlParser: true });
+
+const User = mongoose.model('User', UserSchema)
+
 var user = null;
-
 //ENCRYPTION
 const encrypt1 = process.env.ENCRYPT_ONE;
 const encrypt2 = process.env.ENCRYPT_TWO;
 const passwordEncrypt = process.env.ENCRYPT_STRING;
+const passwordEncrypt2 = process.env.ENCRYPT_STRING2;
+const final = "";
 
 function encrypting(string) {
   const hasher = crypto.createHmac(encrypt1, passwordEncrypt);
@@ -53,73 +83,148 @@ app.get('/signUp', function (req, res) {
   res.sendFile('/signup.html', {root:'.'});
 });
 
+app.get('/signUpN', function (req, res) {
+  res.sendFile('/signup.html', {root:'.'});
+});
+
 app.get('/logIn', function (req, res) {
   message = "";
   res.sendFile('/login.html', {root:'.'});
 });
 
+app.get('/logInN', function (req, res) {
+  res.sendFile('/login.html', {root:'.'});
+});
+
 app.get('/logOut', function (req, res) { 
   user = null;
-  updateWithLogIn();
+  updateWithLogIn(null);
   res.redirect('http://'+req.hostname);
 });
 
 //Sign-up
-app.post('/signUp', function (req, res, next) {
-  MongoClient.connect(uri, async function(err, client) {
-    const db = client.db("booksWebsite").collection("bookLogin");
-    var hashed = encrypting(req.body.password);
+app.post('/signUp', async function (req, res, next) {
+  var pass = req.body.password;
+  var hashed = encrypting(pass);
 
-    let data = {username: req.body.username, password: hashed, fname: req.body.fname, lname: req.body.lname, tasks: []};
-
-    //Username exists
-    var occurs = await db.count({username: data["username"]}, { limit: 1 })
-
-    if (occurs > 0) {
+  let data = {fname: req.body.fname, lname: req.body.lname, email: req.body.email, username: req.body.username, password: hashed, tasks: []};
+  
+  //Username exists
+  await User.find({username: data["username"]}, async function (err, document) {
+    if (document.length > 0) {
       message = "Invalid - username already exists";
-      return;
+      res.redirect('http://'+req.hostname+"/signUpN");
+    } else {
+      await User.find({email: data["email"]}, async function (err, document) {
+        if (document.length > 0) {
+          message = "Invalid - username already exists";
+          res.redirect('http://'+req.hostname+"/signUpN");
+        } else if (!emailValidation(data["email"])) {
+          message = "Invalid - not valid email";
+          res.redirect('http://'+req.hostname+"/signUpN");
+        } else {
+          await passwordValidation(pass).then(async function(result) {
+            if (result == false) {
+              message = "Invalid - not valid password: at least 5 characters, at least 1 number, at least 1 special character";
+              res.redirect('http://'+req.hostname+"/signUpN");
+            } else {
+              const newUser = new User(data);
+              await newUser.save((err, result) => {});
+              updateWithLogIn(newUser.tasks)
+              res.redirect('http://'+req.hostname+"/logIn");
+            }
+          });
+        }
+      })
     }
-
-    insertDocuments(db, data, () => {});
-
-    updateWithLogIn()
-    res.redirect('http://'+req.hostname+"/logIn");
   })
 });
 
-//Insert into database function
-const insertDocuments = (collection, data, callback) => {
-  collection.insert([data], (error, result) => {
-    if (error) return process.exit(1);
-    callback(result);
+function emailValidation(email) {
+  if (email.includes("@") && email.length >= 6) {
+    return true;
+  }
+  return false;
+}
+
+let numValid = false;
+function changeN() {
+  numValid = true;
+}
+
+let escapeValid = false;
+function changeE() {
+  escapeValid = true;
+}
+
+async function passwordValidation(password) {
+  if (password.length < 5) {
+    return false;
+  }
+
+  let nums = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+  numValid = false;
+
+  await nums.forEach(function(element) {
+    if (password.includes(element)) {
+      changeN();
+    }
   });
-};
+
+  if (!numValid) {
+    return false;
+  }
+
+  let escapeCharacters = ["+", "-", "&", "||", "!", "(", ")", "{", "}", "[", "]", "^", "~", "*", "?", ":","\"","\\", "@", "#", "$", "%", "&", ">", "<"];
+  escapeValid = false;
+
+  await escapeCharacters.forEach(function(element) {
+    if (password.includes(element)) {
+      changeE();
+    }
+  });
+
+  if (!escapeValid) {
+    return false;
+  }
+
+  return true;
+}
 
 //Log-in
-app.post('/logIn', function (req, res, next) {
-  MongoClient.connect(uri, async function(err, client) {
-    const db = client.db("booksWebsite").collection("bookLogin");
-    let data = {username: req.body.username, password: req.body.password};
-    var doc = await db.findOne({username: data["username"]});
-    var encrypted = encrypting(data["password"]);
+app.post('/logIn', async function (req, res, next) {
+  let data = {username: req.body.username, password: req.body.password};
+  var encrypted = encrypting(data["password"]);
 
-    if (doc == null || encrypted != doc.password) {
-      message = "Invalid - username doesn't exist or incorrect password";
-      return;
+  await User.find({username: data["username"]}, async function (err, document) {
+    if (document.length > 0 && encrypted == document[0].password) {
+      setUsername(document[0]);
+      updateWithLogIn(document[0].tasks);
+      res.redirect('http://'+req.hostname);
+    } else {
+      await User.find({email: data["username"]}, async function (err, document) {
+        if (document.length > 0 && encrypted == document[0].password) {
+          setUsername(document[0]);
+          updateWithLogIn(document[0].tasks);
+          res.redirect('http://'+req.hostname);
+        } else {
+          message = "Invalid - username doesn't exist or incorrect password";
+          res.redirect('http://'+req.hostname+"/logInN");
+        }
+      })
     }
-
-    user = doc;
-
-    updateWithLogIn()
-    res.redirect('http://'+req.hostname);
   })
 });
 
+function setUsername(doc) {
+  user = doc;
+}
+
 //Log-in updates
-function updateWithLogIn() {
+function updateWithLogIn(tasks) {
   if (user != null) { //logged in
     navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/logOut'>Log Out</a></li>";
-    bodyText = taskManager();
+    bodyText = taskManager(tasks);
   } else { //not logged in
     navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/signUp'>Sign Up</a></li><li id='right'><a href='/logIn'>Log In</a></li>";
     bodyText = "<p class='center'>Please <a href='/logIn'>Log In</a> or <a href='/signUp'>Sign Up</a> to continue</p>"
@@ -127,18 +232,31 @@ function updateWithLogIn() {
 }
 
 //To-Do list
-function taskManager() {
-  var list = "<p style='text-align: center;'>Welcome, " + user.fname + "</p><form autocomplete='off' method='POST' action='/addTask'><input type='text' name='addTask' id='addTask' required><input type='submit' class='taskSubmit'></form><p class='pTitle'>Tasks</p>";
+function taskManager(tasks) {
+  var list = "";
 
-  var tasks = user.tasks;
+  //Sorting
+  list += `<div class='sorting'>
+    <form autocomplete='off' method='POST' action='/sortNumberUp'><input type='submit' class='sort' value='0 - &#8734;'></form>
+    <form autocomplete='off' method='POST' action='/sortNumberDown'><input type='submit' class='sort' value='&#8734; - 0'></form>
+    <form autocomplete='off' method='POST' action='/sortLetterUp'><input type='submit' class='sort' value='A - Z'></form>
+    <form autocomplete='off' method='POST' action='/sortLetterDown'><input type='submit' class='sort' value='Z - A'></form>
+  </div>`;
 
-  list += "<div class='cards'>";
+  //Add Task
+  list += "<p class='pTitle'>Add Task</p><form autocomplete='off' method='POST' action='/addTask'><input type='text' name='addTask' id='addTask' required><input type='submit' class='taskSubmit'></form>";
+
+  list += "<p class='pTitle'>Tasks</p><div class='cards'>";
   for (i = 0; i < tasks.length; i++) {
     if (tasks[i][1] == false) {
-      list += "<form action='/deleteTask' method='POST'><input name='card' class='card' type='text' value='" + tasks[i][0] + "' readonly><input name='sub' class='cardSubmit' type='submit' value='Delete'></form>";
+      list += "<form action='/deleteTask' method='POST' class='cards'><input name='num' class='cardNum' type='text' value='" + (i + 1) + "' readonly><input name='card' class='card' type='text' value='" + tasks[i][0] + "' readonly><input name='sub' class='cardSubmit' type='submit' value='Delete'></form>";
     } else {
-      list += "<form action='/deleteTask' method='POST'><input name='card' class='card' style='text-decoration: line-through;' type='text' value='" + tasks[i][0] + "' readonly><input name='sub' class='cardSubmit' type='submit' value='Delete'></form>";
+      list += "<form action='/deleteTask' method='POST'><input name='num' class='cardNum' type='text' value='" + (i + 1) + "' readonly><input name='card' class='card' style='text-decoration: line-through;' type='text' value='" + tasks[i][0] + "' readonly><input name='sub' class='cardSubmit' type='submit' value='Delete'></form>";
     }
+  }
+
+  if (tasks.length == 0) {
+    list += "<p class='center none'><i class='far fa-folder-open'></i>    No tasks    <i class='far fa-folder-open'></i></p>"
   }
 
   list += "</div>";
@@ -146,89 +264,97 @@ function taskManager() {
   return list;
 }
 
-app.post('/addTask', function (req, res, next) {
-  MongoClient.connect(uri, async function(err, client) {
-    const db = client.db("booksWebsite").collection('bookLogin');
-    var item = req.body.addTask;
-    var tempTasks = user.tasks;
-    tempTasks.push([item, false]);
+app.post('/addTask', async function (req, res, next) {
+  var item = req.body.addTask;
+  user.tasks.push([item, false]);
 
-    if (user != null) {
-      try {
-        db.update(
-          {username: user.username}, 
-          { $set: {tasks: tempTasks}}
-        );
-      } catch (e) {
-        console.log(e);
-      }
-    }
-
-    res.redirect('http://'+req.hostname);
-    updateWithLogIn();
-  })
+  //Update doc
+  doc = await User.findById(user._id, (err, kitten) => {
+    if (err) throw err;
+  });
+  doc.tasks = user.tasks;
+  await doc.save((err, result) => {});
+  
+  res.redirect('http://'+req.hostname);
+  updateWithLogIn(user.tasks);
 });
 
-app.post('/deleteTask', function(req, res, next) {
-  MongoClient.connect(uri, async function(err, client) {
-    const db = client.db("booksWebsite").collection('bookLogin');
-    var item = req.body.card;
-    var tempTasks = user.tasks;
-    var index = 0;
+app.post('/deleteTask', async function(req, res, next) {
+  var item = req.body.card;
+  var tempTasks = user.tasks;
+  var index = 0;
 
-    while(tempTasks[index][0] != item) {
-      index++;
-    }
+  while(tempTasks[index][0] != item) {
+    index++;
+  }
     
-    tempTasks.splice(index, 1);
+  tempTasks.splice(index, 1);
 
-    if (user != null) {
-      try {
-        db.updateOne(
-          {username: user.username}, 
-          {$set: {tasks: tempTasks}}
-        );
-      } catch (e) {
-        console.log(e);
-      }
-    }
+  //Update doc
+  doc = await User.findById(user._id, (err, kitten) => {
+    if (err) throw err;
+  });
+  doc.tasks = user.tasks;
+  await doc.save((err, result) => {});
 
-    updateWithLogIn()
-    res.redirect('http://'+req.hostname);
-  })
+  updateWithLogIn(user.tasks)
+  res.redirect('http://'+req.hostname);
 })
 
 //Click item
-app.post('/clicked', function(req, res, next) {
-  MongoClient.connect(uri, async function(err, client) {
-    const db = client.db("booksWebsite").collection('bookLogin');
-    console.log("In function");
-    
-    var item = req.body.submit;
-    var tempTasks = user.tasks;
-    var index = 0;
+app.post('/clicked', async function(req, res, next) {
+  var item = req.body.submit;
+  var tempTasks = user.tasks;
+  var index = 0;
 
-    while(tempTasks[index][0] != item) {
-      index++;
-    }
+  while(tempTasks[index][0] != item) {
+    index++;
+  }
 
-    tempTasks[index][1] = !tempTasks[index][1];
+  tempTasks[index][1] = !tempTasks[index][1];
 
-    if (user != null) {
-      try {
-        db.updateOne(
-          {username: user.username}, 
-          {$set: {tasks: tempTasks}}
-        );
-      } catch (e) {
-        console.log(e);
-      }
-    }
+  //Update doc
+  doc = await User.findById(user._id, (err, kitten) => {
+    if (err) throw err;
+  });
+  doc.tasks = user.tasks;
+  await doc.save((err, result) => {});
 
-    updateWithLogIn()
-    res.redirect('http://'+req.hostname);
-  })
+  updateWithLogIn(user.tasks)
+  res.redirect('http://'+req.hostname);
 })
+
+//Sorting
+app.post('/sortNumberUp', async function (req, res, next) {
+  updateWithLogIn(user.tasks)
+  res.redirect('http://'+req.hostname);
+});
+
+app.post('/sortNumberDown', async function (req, res, next) {
+  var tempTasks = [...user.tasks];
+  updateWithLogIn(tempTasks.reverse())
+  res.redirect('http://'+req.hostname);
+});
+
+app.post('/sortLetterUp', async function (req, res, next) {
+  var tempTasks = [...user.tasks];
+  tempTasks = tempTasks.sort((x, y) => {
+    return x[0].localeCompare(y[0], 'en', { sensitivity: 'base' });
+  });
+
+  updateWithLogIn(tempTasks)
+  res.redirect('http://'+req.hostname);
+});
+
+app.post('/sortLetterDown', async function (req, res, next) {
+  var tempTasks = [...user.tasks];
+  tempTasks = tempTasks.sort((x, y) => {
+    return x[0].localeCompare(y[0], 'en', { sensitivity: 'base' });
+  });
+  
+  updateWithLogIn(tempTasks.reverse())
+  res.redirect('http://'+req.hostname);
+});
 
 //Set up the program
 app.set('port', process.env.PORT || 5000);
@@ -246,4 +372,4 @@ io.on('connection', function(socket) {
     navigationBar: navigationBar,
     bodyText: bodyText
   });
-});
+}); 
