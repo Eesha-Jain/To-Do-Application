@@ -6,12 +6,19 @@ let mongoose = require('mongoose');
 let http = require('http').Server(app);
 var crypto = require('crypto');
 var io = require('socket.io')(http);
+var jwt = require("jsonwebtoken")
+var cors = require('cors')
+const cookieParser = require("cookie-parser")
 const uri = process.env.URI;
 
 //CUSTOMIZATION
 var message = "";
 var navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/signUp'>Sign Up</a></li><li id='right'><a href='/logIn'>Log In</a></li>";
 var bodyText = "<p class='center'>Please <a href='/logIn'>Log In</a> or <a href='/signUp'>Sign Up</a> to continue</p>";
+
+//JWT
+const jwtKey = process.env.JWT_KEY;
+const jwtExpirySeconds = process.env.JWT_SECONDS;
 
 //MONGOOSE
 const UserSchema = new mongoose.Schema({
@@ -45,15 +52,12 @@ const UserSchema = new mongoose.Schema({
 })
 
 mongoose.connect(uri, { useUnifiedTopology: true, useNewUrlParser: true });
-
 const User = mongoose.model('User', UserSchema)
 
-var user = null;
 //ENCRYPTION
 const encrypt1 = process.env.ENCRYPT_ONE;
 const encrypt2 = process.env.ENCRYPT_TWO;
 const passwordEncrypt = process.env.ENCRYPT_STRING;
-const passwordEncrypt2 = process.env.ENCRYPT_STRING2;
 const final = "";
 
 function encrypting(string) {
@@ -66,12 +70,12 @@ function encrypting(string) {
   return hash2;
 }
 
-//APP.USE/ENGINE/SET
 app.use('/css',express.static(__dirname +'/css'));
-app.use(bodyParser.json())
+app.use(bodyParser.json());
+app.use(cookieParser());
+app.use(cors({ origin: true, credentials: true }));
 app.use(bodyParser.urlencoded({ extended: true }));
-app.set('views', '.')
-app.set('view engine', 'pug')
+app.set('views', '.');
 
 //Redirect to index.html
 app.get('/', function (req, res) {
@@ -97,8 +101,11 @@ app.get('/logInN', function (req, res) {
 });
 
 app.get('/logOut', function (req, res) { 
-  user = null;
-  updateWithLogIn(null);
+  const token = req.cookies.token;
+  var payload = jwt.verify(token, jwtKey);
+  res.clearCookie(token);
+
+  updateWithLogIn(null, req);
   res.redirect('http://'+req.hostname);
 });
 
@@ -109,7 +116,6 @@ app.post('/signUp', async function (req, res, next) {
 
   let data = {fname: req.body.fname, lname: req.body.lname, email: req.body.email, username: req.body.username, password: hashed, tasks: []};
   
-  //Username exists
   await User.find({username: data["username"]}, async function (err, document) {
     if (document.length > 0) {
       message = "Invalid - username already exists";
@@ -130,7 +136,6 @@ app.post('/signUp', async function (req, res, next) {
             } else {
               const newUser = new User(data);
               await newUser.save((err, result) => {});
-              updateWithLogIn(newUser.tasks)
               res.redirect('http://'+req.hostname+"/logIn");
             }
           });
@@ -198,14 +203,45 @@ app.post('/logIn', async function (req, res, next) {
 
   await User.find({username: data["username"]}, async function (err, document) {
     if (document.length > 0 && encrypted == document[0].password) {
-      setUsername(document[0]);
-      updateWithLogIn(document[0].tasks);
+      var doc = document[0];
+      var user = { 
+        fname: doc.fname,
+        lname: doc.lname,
+        email: doc.email,
+        username: doc.username,
+        password: doc.password, 
+        tasks: doc.tasks 
+      };
+
+      //Create token
+      var token = jwt.sign(user, jwtKey);
+      res.cookie("hello", "hi");
+      res.cookie('token', token);
+
+      //{ maxAge: jwtExpirySeconds * 1000, withCredentials: true, credentials: 'include'}
+
+      //Navigation
+      updateWithLogIn(doc.tasks, req);
       res.redirect('http://'+req.hostname);
     } else {
       await User.find({email: data["username"]}, async function (err, document) {
         if (document.length > 0 && encrypted == document[0].password) {
-          setUsername(document[0]);
-          updateWithLogIn(document[0].tasks);
+          var doc = document[0];
+          var user = { 
+            fname: doc.fname,
+            lname: doc.lname,
+            email: doc.email,
+            username: doc.username,
+            password: doc.password, 
+            tasks: doc.tasks 
+          }
+
+          //Create token
+          var token = jwt.sign(user, jwtKey);
+          res.cookie('token', token, { maxAge: jwtExpirySeconds * 1000, withCredentials: true, credentials: 'include'});
+
+          //Navigation
+          updateWithLogIn(doc.tasks, req);
           res.redirect('http://'+req.hostname);
         } else {
           message = "Invalid - username doesn't exist or incorrect password";
@@ -216,18 +252,18 @@ app.post('/logIn', async function (req, res, next) {
   })
 });
 
-function setUsername(doc) {
-  user = doc;
-}
-
 //Log-in updates
-function updateWithLogIn(tasks) {
-  if (user != null) { //logged in
+function updateWithLogIn(tasks, req) {
+  const token = req.cookies.token;
+
+  try {
+    var payload = jwt.verify(token, jwtKey);
     navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/logOut'>Log Out</a></li>";
     bodyText = taskManager(tasks);
-  } else { //not logged in
+  } catch(e) {
     navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/signUp'>Sign Up</a></li><li id='right'><a href='/logIn'>Log In</a></li>";
-    bodyText = "<p class='center'>Please <a href='/logIn'>Log In</a> or <a href='/signUp'>Sign Up</a> to continue</p>"
+    bodyText = "<p class='center'>Please <a href='/logIn'>Log In</a> or <a href='/signUp'>Sign Up</a> to continue</p>";
+    console.log(e);
   }
 }
 
@@ -266,22 +302,43 @@ function taskManager(tasks) {
 
 app.post('/addTask', async function (req, res, next) {
   var item = req.body.addTask;
-  user.tasks.push([item, false]);
+
+  const token = req.cookies.token;
+  var payload = jwt.verify(token, jwtKey);
+  var tempTasks = payload.tasks
+  tempTasks.push([item, false]);
+
+  const newToken = jwt.sign({ 
+    fname: payload.fname, 
+    lname: payload.lname,
+    email: payload.email,
+    username: payload.username,
+    password: payload.password, 
+    tasks: tempTasks
+  }, jwtKey, {
+    algorithm: "HS256",
+    expiresIn: jwtExpirySeconds,
+  })
+  res.cookie("token", newToken, { maxAge: jwtExpirySeconds * 1000 })
 
   //Update doc
-  doc = await User.findById(user._id, (err, kitten) => {
+  doc = await User.findById(payload._id, (err, kitten) => {
     if (err) throw err;
   });
-  doc.tasks = user.tasks;
+  doc.tasks = playload.tasks;
   await doc.save((err, result) => {});
   
   res.redirect('http://'+req.hostname);
-  updateWithLogIn(user.tasks);
+  updateWithLogIn(payload.tasks, req);
 });
 
 app.post('/deleteTask', async function(req, res, next) {
   var item = req.body.card;
-  var tempTasks = user.tasks;
+  
+  const token = req.cookies.token;
+  var payload = jwt.verify(token, jwtKey);
+
+  var tempTasks = payload.tasks;
   var index = 0;
 
   while(tempTasks[index][0] != item) {
@@ -291,20 +348,39 @@ app.post('/deleteTask', async function(req, res, next) {
   tempTasks.splice(index, 1);
 
   //Update doc
-  doc = await User.findById(user._id, (err, kitten) => {
+  doc = await User.findById(payload._id, (err, kitten) => {
     if (err) throw err;
   });
-  doc.tasks = user.tasks;
-  await doc.save((err, result) => {});
 
-  updateWithLogIn(user.tasks)
+  doc.tasks = tempTasks;
+  await doc.save((err, result) => {});
+  
+
+  const newToken = jwt.sign({ 
+    fname: payload.fname, 
+    lname: payload.lname,
+    email: payload.email,
+    username: payload.username,
+    password: payload.password, 
+    tasks: tempTasks
+  }, jwtKey, {
+    algorithm: "HS256",
+    expiresIn: jwtExpirySeconds,
+  })
+  res.cookie("token", newToken, { maxAge: jwtExpirySeconds * 1000 })
+
+  updateWithLogIn(payload.tasks, req)
   res.redirect('http://'+req.hostname);
 })
 
 //Click item
 app.post('/clicked', async function(req, res, next) {
   var item = req.body.submit;
-  var tempTasks = user.tasks;
+
+  const token = req.cookies.token;
+  var payload = jwt.verify(token, jwtKey);
+
+  var tempTasks = payload.tasks;
   var index = 0;
 
   while(tempTasks[index][0] != item) {
@@ -314,45 +390,57 @@ app.post('/clicked', async function(req, res, next) {
   tempTasks[index][1] = !tempTasks[index][1];
 
   //Update doc
-  doc = await User.findById(user._id, (err, kitten) => {
+  doc = await User.findById(payload._id, (err, kitten) => {
     if (err) throw err;
   });
-  doc.tasks = user.tasks;
+  doc.tasks = payload.tasks;
   await doc.save((err, result) => {});
 
-  updateWithLogIn(user.tasks)
+  updateWithLogIn(payload.tasks, req)
   res.redirect('http://'+req.hostname);
 })
 
 //Sorting
 app.post('/sortNumberUp', async function (req, res, next) {
-  updateWithLogIn(user.tasks)
+  const token = req.cookies.token;
+  var payload = jwt.verify(token, jwtKey);
+
+  updateWithLogIn(payload.tasks, req)
   res.redirect('http://'+req.hostname);
 });
 
 app.post('/sortNumberDown', async function (req, res, next) {
-  var tempTasks = [...user.tasks];
-  updateWithLogIn(tempTasks.reverse())
+  const token = req.cookies.token;
+  var payload = jwt.verify(token, jwtKey);
+
+  var tempTasks = [...payload.tasks];
+  updateWithLogIn(tempTasks.reverse(), req)
   res.redirect('http://'+req.hostname);
 });
 
 app.post('/sortLetterUp', async function (req, res, next) {
-  var tempTasks = [...user.tasks];
+  const token = req.cookies.token;
+  var payload = jwt.verify(token, jwtKey);
+
+  var tempTasks = [...payload.tasks];
   tempTasks = tempTasks.sort((x, y) => {
     return x[0].localeCompare(y[0], 'en', { sensitivity: 'base' });
   });
 
-  updateWithLogIn(tempTasks)
+  updateWithLogIn(tempTasks, req)
   res.redirect('http://'+req.hostname);
 });
 
 app.post('/sortLetterDown', async function (req, res, next) {
-  var tempTasks = [...user.tasks];
+  const token = req.cookies.token;
+  var payload = jwt.verify(token, jwtKey);
+
+  var tempTasks = [...payload.tasks];
   tempTasks = tempTasks.sort((x, y) => {
     return x[0].localeCompare(y[0], 'en', { sensitivity: 'base' });
   });
   
-  updateWithLogIn(tempTasks.reverse())
+  updateWithLogIn(tempTasks.reverse(), req)
   res.redirect('http://'+req.hostname);
 });
 
