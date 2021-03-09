@@ -8,8 +8,11 @@ var crypto = require('crypto');
 var io = require('socket.io')(http);
 var jwt = require("jsonwebtoken")
 var cors = require('cors')
-const cookieParser = require("cookie-parser")
 const uri = process.env.URI;
+
+//Local storage
+var LocalStorage = require('node-localstorage').LocalStorage,
+localStorage = new LocalStorage('./scratch');
 
 //CUSTOMIZATION
 var message = "";
@@ -72,7 +75,6 @@ function encrypting(string) {
 
 app.use('/css',express.static(__dirname +'/css'));
 app.use(bodyParser.json());
-app.use(cookieParser());
 app.use(cors({ origin: true, credentials: true }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.set('views', '.');
@@ -101,9 +103,7 @@ app.get('/logInN', function (req, res) {
 });
 
 app.get('/logOut', function (req, res) { 
-  const token = req.cookies.token;
-  var payload = jwt.verify(token, jwtKey);
-  res.clearCookie(token);
+  localStorage.removeItem('token');
 
   updateWithLogIn(null, req);
   res.redirect('http://'+req.hostname);
@@ -196,6 +196,23 @@ async function passwordValidation(password) {
   return true;
 }
 
+
+function createToken(doc) {
+  var user = {
+    _id: doc._id,
+    fname: doc.fname,
+    lname: doc.lname,
+    email: doc.email,
+    username: doc.username,
+    password: doc.password, 
+    tasks: doc.tasks 
+  }
+
+  //Create token
+  var token = jwt.sign(user, jwtKey);
+  localStorage.setItem('token', token);
+}
+
 //Log-in
 app.post('/logIn', async function (req, res, next) {
   let data = {username: req.body.username, password: req.body.password};
@@ -204,21 +221,7 @@ app.post('/logIn', async function (req, res, next) {
   await User.find({username: data["username"]}, async function (err, document) {
     if (document.length > 0 && encrypted == document[0].password) {
       var doc = document[0];
-      var user = { 
-        fname: doc.fname,
-        lname: doc.lname,
-        email: doc.email,
-        username: doc.username,
-        password: doc.password, 
-        tasks: doc.tasks 
-      };
-
-      //Create token
-      var token = jwt.sign(user, jwtKey);
-      res.cookie("hello", "hi");
-      res.cookie('token', token);
-
-      //{ maxAge: jwtExpirySeconds * 1000, withCredentials: true, credentials: 'include'}
+      createToken(doc);
 
       //Navigation
       updateWithLogIn(doc.tasks, req);
@@ -227,18 +230,7 @@ app.post('/logIn', async function (req, res, next) {
       await User.find({email: data["username"]}, async function (err, document) {
         if (document.length > 0 && encrypted == document[0].password) {
           var doc = document[0];
-          var user = { 
-            fname: doc.fname,
-            lname: doc.lname,
-            email: doc.email,
-            username: doc.username,
-            password: doc.password, 
-            tasks: doc.tasks 
-          }
-
-          //Create token
-          var token = jwt.sign(user, jwtKey);
-          res.cookie('token', token, { maxAge: jwtExpirySeconds * 1000, withCredentials: true, credentials: 'include'});
+          createToken(doc);
 
           //Navigation
           updateWithLogIn(doc.tasks, req);
@@ -254,8 +246,8 @@ app.post('/logIn', async function (req, res, next) {
 
 //Log-in updates
 function updateWithLogIn(tasks, req) {
-  const token = req.cookies.token;
-
+  var token = localStorage.getItem('token');
+  
   try {
     var payload = jwt.verify(token, jwtKey);
     navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/logOut'>Log Out</a></li>";
@@ -263,7 +255,6 @@ function updateWithLogIn(tasks, req) {
   } catch(e) {
     navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/signUp'>Sign Up</a></li><li id='right'><a href='/logIn'>Log In</a></li>";
     bodyText = "<p class='center'>Please <a href='/logIn'>Log In</a> or <a href='/signUp'>Sign Up</a> to continue</p>";
-    console.log(e);
   }
 }
 
@@ -303,29 +294,16 @@ function taskManager(tasks) {
 app.post('/addTask', async function (req, res, next) {
   var item = req.body.addTask;
 
-  const token = req.cookies.token;
+  var token = localStorage.getItem('token');
   var payload = jwt.verify(token, jwtKey);
-  var tempTasks = payload.tasks
-  tempTasks.push([item, false]);
 
-  const newToken = jwt.sign({ 
-    fname: payload.fname, 
-    lname: payload.lname,
-    email: payload.email,
-    username: payload.username,
-    password: payload.password, 
-    tasks: tempTasks
-  }, jwtKey, {
-    algorithm: "HS256",
-    expiresIn: jwtExpirySeconds,
-  })
-  res.cookie("token", newToken, { maxAge: jwtExpirySeconds * 1000 })
+  payload.tasks.push([item, false]);
+  createToken(payload);
 
   //Update doc
-  doc = await User.findById(payload._id, (err, kitten) => {
-    if (err) throw err;
-  });
-  doc.tasks = playload.tasks;
+  doc = await User.findById(payload._id);
+
+  doc.tasks = payload.tasks;
   await doc.save((err, result) => {});
   
   res.redirect('http://'+req.hostname);
@@ -335,7 +313,7 @@ app.post('/addTask', async function (req, res, next) {
 app.post('/deleteTask', async function(req, res, next) {
   var item = req.body.card;
   
-  const token = req.cookies.token;
+  var token = localStorage.getItem('token');
   var payload = jwt.verify(token, jwtKey);
 
   var tempTasks = payload.tasks;
@@ -355,19 +333,7 @@ app.post('/deleteTask', async function(req, res, next) {
   doc.tasks = tempTasks;
   await doc.save((err, result) => {});
   
-
-  const newToken = jwt.sign({ 
-    fname: payload.fname, 
-    lname: payload.lname,
-    email: payload.email,
-    username: payload.username,
-    password: payload.password, 
-    tasks: tempTasks
-  }, jwtKey, {
-    algorithm: "HS256",
-    expiresIn: jwtExpirySeconds,
-  })
-  res.cookie("token", newToken, { maxAge: jwtExpirySeconds * 1000 })
+  createToken(payload);
 
   updateWithLogIn(payload.tasks, req)
   res.redirect('http://'+req.hostname);
@@ -377,9 +343,9 @@ app.post('/deleteTask', async function(req, res, next) {
 app.post('/clicked', async function(req, res, next) {
   var item = req.body.submit;
 
-  const token = req.cookies.token;
+  var token = localStorage.getItem('token');
   var payload = jwt.verify(token, jwtKey);
-
+  
   var tempTasks = payload.tasks;
   var index = 0;
 
@@ -393,16 +359,18 @@ app.post('/clicked', async function(req, res, next) {
   doc = await User.findById(payload._id, (err, kitten) => {
     if (err) throw err;
   });
-  doc.tasks = payload.tasks;
+  doc.tasks = tempTasks;
   await doc.save((err, result) => {});
 
-  updateWithLogIn(payload.tasks, req)
+  createToken(payload);
+
+  updateWithLogIn(tempTasks, req)
   res.redirect('http://'+req.hostname);
 })
 
 //Sorting
 app.post('/sortNumberUp', async function (req, res, next) {
-  const token = req.cookies.token;
+  var token = localStorage.getItem('token');
   var payload = jwt.verify(token, jwtKey);
 
   updateWithLogIn(payload.tasks, req)
@@ -410,7 +378,7 @@ app.post('/sortNumberUp', async function (req, res, next) {
 });
 
 app.post('/sortNumberDown', async function (req, res, next) {
-  const token = req.cookies.token;
+  var token = localStorage.getItem('token');
   var payload = jwt.verify(token, jwtKey);
 
   var tempTasks = [...payload.tasks];
@@ -419,7 +387,7 @@ app.post('/sortNumberDown', async function (req, res, next) {
 });
 
 app.post('/sortLetterUp', async function (req, res, next) {
-  const token = req.cookies.token;
+  var token = localStorage.getItem('token');
   var payload = jwt.verify(token, jwtKey);
 
   var tempTasks = [...payload.tasks];
@@ -432,7 +400,7 @@ app.post('/sortLetterUp', async function (req, res, next) {
 });
 
 app.post('/sortLetterDown', async function (req, res, next) {
-  const token = req.cookies.token;
+  var token = localStorage.getItem('token');
   var payload = jwt.verify(token, jwtKey);
 
   var tempTasks = [...payload.tasks];
