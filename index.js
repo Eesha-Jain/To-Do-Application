@@ -235,7 +235,7 @@ function createToken(doc) {
 
   //Create token
   var token = jwt.sign(user, jwtKey);
-  localStorage.setItem('token', token);
+  return token;
 }
 
 //Log-in
@@ -251,11 +251,10 @@ app.post('/logIn', async function (req, res, next) {
 
     if (document.length > 0 && encrypted == document[0].password) {
       var doc = document[0];
-      createToken(doc);
-
-      //Navigation
       updateWithLogIn(doc.tasks, req);
       res.redirect('http://'+req.hostname);
+          
+      return createToken(doc);
     } else {
       await User.find({email: data["username"]}, async function (err, document) {
         if (err) {
@@ -265,11 +264,10 @@ app.post('/logIn', async function (req, res, next) {
 
         if (document.length > 0 && encrypted == document[0].password) {
           var doc = document[0];
-          createToken(doc);
-
-          //Navigation
           updateWithLogIn(doc.tasks, req);
           res.redirect('http://'+req.hostname);
+
+          return createToken(doc);
         } else {
           message = "Invalid - username doesn't exist or incorrect password";
           res.redirect('http://'+req.hostname+"/logInN");
