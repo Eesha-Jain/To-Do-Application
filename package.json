@@ -10,20 +10,30 @@
     "cookie-parser": "^1.4.5",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
+    "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "jsonwebtoken": "^8.5.1",
     "mongodb": "^3.6.4",
-    "mongoose": "^5.11.18",
+    "mongoose": "^5.11.19",
     "njwt": "^1.0.0",
     "node-localstorage": "^2.1.6",
     "pug": "^3.0.2",
-    "socket.io": "^3.1.1"
+    "scripts": "^0.1.0",
+    "socket.io": "^3.1.2"
   },
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Eesha-Jain/To-Do-Application.git"
+  },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Eesha-Jain/To-Do-Application/issues"
+  },
+  "homepage": "https://github.com/Eesha-Jain/To-Do-Application#readme"
 }

@@ -23,9 +23,9 @@
 
 <body>
   <ul class="nav-bar" id="nav-bar">
-    <li><a href="/">Home</a></li>
-    <li id="right"><a href="/signUp">Sign Up</a></li>
-    <li id="right"><a href="/logIn">Log In</a></li>
+    <li><link to="/">Home</link></li>
+    <li id="right"><link to="/signUp">Sign Up</link></li>
+    <li id="right"><link to="/logIn">Log In</link></li>
   </ul>
 
   <script>
@@ -46,14 +46,25 @@
       }
     }
 
+    async function listenerClicked(input) {
+      let user = {
+        submit: document.getElementById('submitTemp').value,
+      };
+
+      await fetch('/clicked', {method: 'POST', headers: {
+          'Content-Type': 'application/json'
+        }, body: JSON.stringify(user)
+      });
+    }
+
     function listener(cardsList, i) {
       var info = cardsList[i].value;
-      document.getElementById("temp").innerHTML = "<form action='/clicked' id='formTemp' method='POST'><input name='submit' id='submitTemp' type='submit' value='" + info + "'></form>";
+
+      document.getElementById("temp").innerHTML = '<form id="formTemp" onsubmit="listenerClicked()"><input name="submit" id="submitTemp" type="submit" value="' + info + '"></form>';
 
       document.getElementById("submitTemp").click();
     }
   </script>
-
   <div id="welcome">To-Do Website</div>
   
   <div class="tasks" id="tasks">

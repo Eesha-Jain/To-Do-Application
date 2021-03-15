@@ -1,14 +1,13 @@
 //REQUIREMENTS
 let express = require('express');
 let app = express();
-let bodyParser = require('body-parser');
 let mongoose = require('mongoose');
+let bodyParser = require('body-parser');
 let http = require('http').Server(app);
 var crypto = require('crypto');
 var io = require('socket.io')(http);
-var jwt = require("jsonwebtoken")
-var cors = require('cors')
-const uri = process.env.URI;
+var jwt = require("jsonwebtoken");
+var cors = require('cors');
 
 //Local storage
 var LocalStorage = require('node-localstorage').LocalStorage,
@@ -18,6 +17,29 @@ localStorage = new LocalStorage('./scratch');
 var message = "";
 var navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/signUp'>Sign Up</a></li><li id='right'><a href='/logIn'>Log In</a></li>";
 var bodyText = "<p class='center'>Please <a href='/logIn'>Log In</a> or <a href='/signUp'>Sign Up</a> to continue</p>";
+
+//ENCRYPTION
+const encrypt1 = process.env.ENCRYPT_ONE;
+const encrypt2 = process.env.ENCRYPT_TWO;
+const passwordEncrypt = process.env.ENCRYPT_STRING;
+
+function encrypting(string) {
+  const hasher = crypto.createHmac(encrypt1, passwordEncrypt);
+  const hash = hasher.update(string).digest("hex");
+
+  const hasher2 = crypto.createHmac(encrypt2, passwordEncrypt);
+  const hash2 = hasher2.update(hash).digest("hex");
+
+  return hash2;
+}
+
+app.use(express.static("../scripts"));
+app.use('/css',express.static(__dirname +'/css'));
+app.use(bodyParser.json());
+app.use(cors({ origin: true, credentials: true }));
+app.use(bodyParser.urlencoded({ extended: true }));
+app.set('views', '.');
+
 
 //JWT
 const jwtKey = process.env.JWT_KEY;
@@ -52,32 +74,12 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
-})
+});
 
+const uri = process.env.URI;
 mongoose.connect(uri, { useUnifiedTopology: true, useNewUrlParser: true });
-const User = mongoose.model('User', UserSchema)
 
-//ENCRYPTION
-const encrypt1 = process.env.ENCRYPT_ONE;
-const encrypt2 = process.env.ENCRYPT_TWO;
-const passwordEncrypt = process.env.ENCRYPT_STRING;
-const final = "";
-
-function encrypting(string) {
-  const hasher = crypto.createHmac(encrypt1, passwordEncrypt);
-  const hash = hasher.update(string).digest("hex");
-
-  const hasher2 = crypto.createHmac(encrypt2, passwordEncrypt);
-  const hash2 = hasher2.update(hash).digest("hex");
-
-  return hash2;
-}
-
-app.use('/css',express.static(__dirname +'/css'));
-app.use(bodyParser.json());
-app.use(cors({ origin: true, credentials: true }));
-app.use(bodyParser.urlencoded({ extended: true }));
-app.set('views', '.');
+const User = mongoose.model('User', UserSchema);
 
 //Redirect to index.html
 app.get('/', function (req, res) {
@@ -109,6 +111,14 @@ app.get('/logOut', function (req, res) {
   res.redirect('http://'+req.hostname);
 });
 
+app.get('*', function (req, res) { 
+  error(res);
+});
+
+function error(res) {
+  res.sendFile('/error.html', {root: '.'});
+}
+
 //Sign-up
 app.post('/signUp', async function (req, res, next) {
   var pass = req.body.password;
@@ -117,11 +127,21 @@ app.post('/signUp', async function (req, res, next) {
   let data = {fname: req.body.fname, lname: req.body.lname, email: req.body.email, username: req.body.username, password: hashed, tasks: []};
   
   await User.find({username: data["username"]}, async function (err, document) {
+    if (err) {
+      error(res);
+      return;
+    }
+
     if (document.length > 0) {
       message = "Invalid - username already exists";
       res.redirect('http://'+req.hostname+"/signUpN");
     } else {
       await User.find({email: data["email"]}, async function (err, document) {
+        if (err) {
+          error(res);
+          return;
+        }
+
         if (document.length > 0) {
           message = "Invalid - username already exists";
           res.redirect('http://'+req.hostname+"/signUpN");
@@ -135,7 +155,12 @@ app.post('/signUp', async function (req, res, next) {
               res.redirect('http://'+req.hostname+"/signUpN");
             } else {
               const newUser = new User(data);
-              await newUser.save((err, result) => {});
+              await newUser.save((err, result) => {
+                if (err) {
+                  error(res);
+                  return;
+                }
+              });
               res.redirect('http://'+req.hostname+"/logIn");
             }
           });
@@ -219,6 +244,11 @@ app.post('/logIn', async function (req, res, next) {
   var encrypted = encrypting(data["password"]);
 
   await User.find({username: data["username"]}, async function (err, document) {
+    if (err) {
+      error(res);
+      return;
+    }
+
     if (document.length > 0 && encrypted == document[0].password) {
       var doc = document[0];
       createToken(doc);
@@ -228,6 +258,11 @@ app.post('/logIn', async function (req, res, next) {
       res.redirect('http://'+req.hostname);
     } else {
       await User.find({email: data["username"]}, async function (err, document) {
+        if (err) {
+          error(res);
+          return;
+        }
+
         if (document.length > 0 && encrypted == document[0].password) {
           var doc = document[0];
           createToken(doc);
@@ -304,7 +339,12 @@ app.post('/addTask', async function (req, res, next) {
   doc = await User.findById(payload._id);
 
   doc.tasks = payload.tasks;
-  await doc.save((err, result) => {});
+  await doc.save((err, result) => {
+    if (err) {
+      error(res);
+      return;
+    }
+  });
   
   res.redirect('http://'+req.hostname);
   updateWithLogIn(payload.tasks, req);
@@ -327,11 +367,19 @@ app.post('/deleteTask', async function(req, res, next) {
 
   //Update doc
   doc = await User.findById(payload._id, (err, kitten) => {
-    if (err) throw err;
+    if (err) {
+      error(res);
+      return;
+    }
   });
 
   doc.tasks = tempTasks;
-  await doc.save((err, result) => {});
+  await doc.save((err, result) => {
+    if (err) {
+      error(res);
+      return;
+    }
+  });
   
   createToken(payload);
 
@@ -356,16 +404,18 @@ app.post('/clicked', async function(req, res, next) {
   tempTasks[index][1] = !tempTasks[index][1];
 
   //Update doc
-  doc = await User.findById(payload._id, (err, kitten) => {
-    if (err) throw err;
+  var doc = await User.findById(payload._id, (err, kitten) => {
+    if (err) error(res);
   });
   doc.tasks = tempTasks;
-  await doc.save((err, result) => {});
+  
+  await doc.save((err, result) => {
+    if (err) error(res);
+  })
 
-  createToken(payload);
-
+  createToken(payload)
   updateWithLogIn(tempTasks, req)
-  res.redirect('http://'+req.hostname);
+  res.redirect('http://'+req.hostname+"/");
 })
 
 //Sorting
