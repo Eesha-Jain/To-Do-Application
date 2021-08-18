@@ -14,53 +14,70 @@
 	<link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap" rel="stylesheet">
+  <link rel="icon" href="css/images/icon.PNG">
 
-  <!--Script sheet-->
-  <script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
   <ul class="nav-bar" id="nav-bar">
-    <li><link to="/">Home</link></li>
-    <li id="right"><link to="/signUp">Sign Up</link></li>
-    <li id="right"><link to="/logIn">Log In</link></li>
+    <li><a href="/">Home</a></li>
+    <li id="right"><a href="/signUp">Sign Up</a></li>
+    <li id="right"><a href="/logIn">Log In</a></li>
   </ul>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      var socket = io();
-      socket.on('change_message', function(data) {
-        document.getElementById('message').innerHTML = data.message;
-      });
-
-      socket.on('change_login', function(data) {
-        document.getElementById('nav-bar').innerHTML = data.navigationBar;
-      });
-    });
-  </script>
 
 	<div class="log-in-box">
 		<div class="form">
-			<h1 class="title">Log-In</h1>
-			<form action="/logIn" class="sign-up-form" method="POST" autocomplete="off">               
+			<h1 class="title" id="title">Log-In</h1>
+			<form class="sign-up-form logInForm" autocomplete="off">            
         <label for="username">UserName or Email:  </label><br>
-        <input name="username" type="text" required>
+        <input name="username" id="username" type="text" required>
 
         <br>
         <br>
                 
         <label for="password">Password:  </label><br>
-        <input name="password" type="text" style="-webkit-text-security: disc;" required>
+        <input name="password" id="password" type="password" required>
 
         <br>
         <br>
 
-        <input name="submit" type="submit" class="submit">
+        <button id="submit" class="submit" type="submit">Submit</button>
 
         <p id="message" style="margin-bottom: 0;"></p>
       </form>
     </div>
   </div>
   <br>
+
+  <script>
+    var form = document.querySelector(".logInForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      try {
+        const req = await fetch("/logIn", {
+          method: "POST",
+          body: JSON.stringify({
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value
+          }),
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+
+        const res = await req.json();
+        
+        if (res.error == false) {
+          localStorage.jwt = res.token;
+          window.location.replace("/");
+        } else {
+          document.getElementById("message").innerHTML = res.message;
+        }
+      } catch (err) {
+        document.getElementById("message").innerHTML = err;
+      }
+    })
+  </script>
 </body>
 </html>

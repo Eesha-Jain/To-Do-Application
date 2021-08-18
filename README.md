@@ -16,4 +16,4 @@ You can even use this from anywhere since this is based on you logging into the 
 More coming soon!
 
 ## Credits
-This project was made entirely by Eesha Jain on replit.com.
+This project was made by Eesha Jain on replit.com.

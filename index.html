@@ -14,66 +14,141 @@
 	<link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap" rel="stylesheet">
+  <link rel="icon" href="css/images/icon.PNG">
 
-  <!--Script sheet-->
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="https://kit.fontawesome.com/6981eea73f.js" crossorigin="anonymous"></script>
-  <script src="index.js"></script>
+	<script src="https://kit.fontawesome.com/6981eea73f.js" crossorigin="anonymous">
+	</script>
 </head>
 
 <body>
-  <ul class="nav-bar" id="nav-bar">
-    <li><link to="/">Home</link></li>
-    <li id="right"><link to="/signUp">Sign Up</link></li>
-    <li id="right"><link to="/logIn">Log In</link></li>
-  </ul>
+	<ul class="nav-bar" id="nav-bar">
+		<li><a href="/">Home</a></li>
+		<li id="right"><a href="/signUp">Sign Up</a></li>
+		<li id="right"><a href="/logIn">Log In</a></li>
+	</ul>
+
+	<div id="welcome">To-Do Website</div>
+
+  <p class="center" id="pleaseLogIn" style="display: block;">Please <a href="/logIn">Log In</a> or <a href="/signUp">Sign Up</a> to continue</p>
+
+	<div class="tasks" id="tasks" style="display: none;">
+		<!--<div class='sorting'>
+      <form autocomplete='off' method='POST' action='/sortNumberUp'><button class="sort" type="submit">0 - &#8734;</button></form>
+      <form autocomplete='off' method='POST' action='/sortNumberDown'><button class="sort" type="submit">&#8734; - 0</button></form>
+      <form autocomplete='off' method='POST' action='/sortLetterUp'><button class="sort" type="submit">A - Z</button></form>
+      <form autocomplete='off' method='POST' action='/sortLetterDown'><button class="sort" type="submit">Z - A</button></form>
+    </div>-->
+      
+    <p class='pTitle'>Add Task</p>
+    <form autocomplete='off' id='formAdd'>
+      <input type='text' id='addTask' placeholder="task" required>
+      <button class="taskSubmit" id="submit" type="submit" name="submit">Submit</button>
+    </form>
+
+    <div id="tasksGoHere"></div>
+	</div>
+
+	<div id="temp" style="display: none;"></div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      var socket = io();
+    //LOG OUT
+    function logOut() {
+      localStorage.clear();
+      window.location.replace("/");
+    }
 
-      socket.on('change_login', function(data) {
-        document.getElementById('nav-bar').innerHTML = data.navigationBar;
-        document.getElementById('tasks').innerHTML = data.bodyText;
-        listen();
+    //ADD TASKS
+    var formAdd = document.querySelector("#formAdd");
+    formAdd.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      try {
+        var reqTasks = await fetch("/addTask", {
+          method: "POST",
+          body: JSON.stringify({
+            item: document.getElementById('addTask').value,
+            token: localStorage.jwt
+          }),
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+
+        var resTasks = await reqTasks.json();
+        localStorage.jwt = resTasks.token;
+        getTasks();
+
+        document.getElementById("addTask").value = "";
+
+      } catch (err) {alert(err)}
+    })
+
+    //GET TASKS
+    async function getTasks() {
+      var req = await fetch("/getTasks", {
+        method: "POST",
+        body: JSON.stringify({
+          token: localStorage.jwt,
+        }),
+        headers: {
+          "Content-Type": "application/json"
+        }
       });
-    });
 
-    function listen() {
-      var cardsList = document.getElementsByClassName("card");
-      for (var i = 0; i < cardsList.length; i++) {
-        cardsList[i].addEventListener("click", listener.bind(null, cardsList, i), false)
+      var res = await req.json();
+      document.getElementById("tasksGoHere").innerHTML = res.text;
+
+      if (!res.none) {
+        var cardsList = document.querySelector(".card");
+        for (var i = 0; i < cardsList.length; i++) {
+          cardsList[i].addEventListener("click", listener.bind(null, cardsList, i), false)
+        }
       }
     }
 
-    async function listenerClicked(input) {
-      let user = {
-        submit: document.getElementById('submitTemp').value,
-      };
-
-      await fetch('/clicked', {method: 'POST', headers: {
-          'Content-Type': 'application/json'
-        }, body: JSON.stringify(user)
-      });
-    }
-
+    //CLICK ITEM - LISTENER
     function listener(cardsList, i) {
       var info = cardsList[i].value;
-
-      document.getElementById("temp").innerHTML = '<form id="formTemp" onsubmit="listenerClicked()"><input name="submit" id="submitTemp" type="submit" value="' + info + '"></form>';
-
+      document.getElementById("temp").innerHTML = '<form class="formItemClicked' + i + '"><button id="submitTemp' + i + '" type="submit">' + info + '></button></form>';
       document.getElementById("submitTemp").click();
+
+      alert("inside11");
+
+      //FORM - CLICKED
+      var formClick = document.querySelector(".formItemClicked" + i);
+      formClick.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        alert("inside");
+        
+        try {
+          const req = await fetch("/clicked", {
+            method: "POST",
+            body: JSON.stringify({
+              submit: document.getElementById('submitTemp' + i).value,
+              token: localStorage.jwt
+            }),
+            headers: {
+              "Content-Type": "application/json"
+            }
+          });
+
+          const res = await req.json();
+          localStorage.jwt = res.token;
+        } catch (err) {alert(err)}
+      }) 
     }
-  </script>
-  <div id="welcome">To-Do Website</div>
-  
-  <div class="tasks" id="tasks">
-    <p class="center">Please <a href="/logIn">Log In</a> or <a href="/signUp">Sign Up</a> to continue</p>
-  </div>
+    
+		//UPDATE CODE
+    if (localStorage.jwt != null) {
+      document.querySelector("#nav-bar").innerHTML = "<li><a href='/'>Home</a></li><li id='right'><button onclick='logOut()'>Log Out</button></li>";
 
-  <div id="temp" style="display: none;">
-
-  </div>
-  <br>
+      document.querySelector("#pleaseLogIn").style.display="none";
+      document.querySelector("#tasks").style.display="block";
+      
+      getTasks();      
+    }
+	</script>
+	<br>
 </body>
 </html>

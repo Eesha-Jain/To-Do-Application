@@ -2,21 +2,11 @@
 let express = require('express');
 let app = express();
 let mongoose = require('mongoose');
-let bodyParser = require('body-parser');
-let http = require('http').Server(app);
 var crypto = require('crypto');
-var io = require('socket.io')(http);
 var jwt = require("jsonwebtoken");
-var cors = require('cors');
 
-//Local storage
-var LocalStorage = require('node-localstorage').LocalStorage,
-localStorage = new LocalStorage('./scratch');
-
-//CUSTOMIZATION
-var message = "";
-var navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/signUp'>Sign Up</a></li><li id='right'><a href='/logIn'>Log In</a></li>";
-var bodyText = "<p class='center'>Please <a href='/logIn'>Log In</a> or <a href='/signUp'>Sign Up</a> to continue</p>";
+app.use('/css',express.static(__dirname +'/css'));
+app.use(express.json());
 
 //ENCRYPTION
 const encrypt1 = process.env.ENCRYPT_ONE;
@@ -32,14 +22,6 @@ function encrypting(string) {
 
   return hash2;
 }
-
-app.use(express.static("../scripts"));
-app.use('/css',express.static(__dirname +'/css'));
-app.use(bodyParser.json());
-app.use(cors({ origin: true, credentials: true }));
-app.use(bodyParser.urlencoded({ extended: true }));
-app.set('views', '.');
-
 
 //JWT
 const jwtKey = process.env.JWT_KEY;
@@ -81,6 +63,22 @@ mongoose.connect(uri, { useUnifiedTopology: true, useNewUrlParser: true });
 
 const User = mongoose.model('User', UserSchema);
 
+//VERIFICATION
+const validate = (req, res, next) => {
+  const token = req.body.token;
+  if (!token) {
+    return res.status(401).send("Invalid");
+  }
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_KEY);
+    req.user = payload;
+    next()
+  } catch (err) {
+    return res.status(403).send("Invalid");
+  }
+}
+
 //Redirect to index.html
 app.get('/', function (req, res) {
   res.sendFile('/index.html', {root:'.'});
@@ -100,17 +98,6 @@ app.get('/logIn', function (req, res) {
   res.sendFile('/login.html', {root:'.'});
 });
 
-app.get('/logInN', function (req, res) {
-  res.sendFile('/login.html', {root:'.'});
-});
-
-app.get('/logOut', function (req, res) { 
-  localStorage.removeItem('token');
-
-  updateWithLogIn(null, req);
-  res.redirect('http://'+req.hostname);
-});
-
 app.get('*', function (req, res) { 
   error(res);
 });
@@ -120,12 +107,12 @@ function error(res) {
 }
 
 //Sign-up
-app.post('/signUp', async function (req, res, next) {
+app.post('/signUp', async function (req, res) {
   var pass = req.body.password;
   var hashed = encrypting(pass);
 
   let data = {fname: req.body.fname, lname: req.body.lname, email: req.body.email, username: req.body.username, password: hashed, tasks: []};
-  
+
   await User.find({username: data["username"]}, async function (err, document) {
     if (err) {
       error(res);
@@ -133,8 +120,7 @@ app.post('/signUp', async function (req, res, next) {
     }
 
     if (document.length > 0) {
-      message = "Invalid - username already exists";
-      res.redirect('http://'+req.hostname+"/signUpN");
+      return res.status(400).send(JSON.stringify({error: true, message: "Invalid - username already exists"}));
     } else {
       await User.find({email: data["email"]}, async function (err, document) {
         if (err) {
@@ -143,16 +129,13 @@ app.post('/signUp', async function (req, res, next) {
         }
 
         if (document.length > 0) {
-          message = "Invalid - username already exists";
-          res.redirect('http://'+req.hostname+"/signUpN");
+          return res.status(400).send(JSON.stringify({error: true, message: "Invalid - username already exists"}));
         } else if (!emailValidation(data["email"])) {
-          message = "Invalid - not valid email";
-          res.redirect('http://'+req.hostname+"/signUpN");
+          return res.status(400).send(JSON.stringify({error: true, message: "Invalid - not valid username"}));
         } else {
           await passwordValidation(pass).then(async function(result) {
             if (result == false) {
-              message = "Invalid - not valid password: at least 5 characters, at least 1 number, at least 1 special character";
-              res.redirect('http://'+req.hostname+"/signUpN");
+              return res.status(400).send(JSON.stringify({error: true, message: "Invalid - not valid password: at least 5 characters, at least 1 number, at least 1 special character"}));
             } else {
               const newUser = new User(data);
               await newUser.save((err, result) => {
@@ -161,7 +144,8 @@ app.post('/signUp', async function (req, res, next) {
                   return;
                 }
               });
-              res.redirect('http://'+req.hostname+"/logIn");
+              
+              return res.status(400).send(JSON.stringify({error: false, message: ""}));
             }
           });
         }
@@ -239,7 +223,7 @@ function createToken(doc) {
 }
 
 //Log-in
-app.post('/logIn', async function (req, res, next) {
+app.post('/logIn', async function (req, res) {
   let data = {username: req.body.username, password: req.body.password};
   var encrypted = encrypting(data["password"]);
 
@@ -251,10 +235,8 @@ app.post('/logIn', async function (req, res, next) {
 
     if (document.length > 0 && encrypted == document[0].password) {
       var doc = document[0];
-      updateWithLogIn(doc.tasks, req);
-      res.redirect('http://'+req.hostname);
-          
-      return createToken(doc);
+      var token = createToken(doc);
+      return res.status(400).send(JSON.stringify({error: false, token: token}));
     } else {
       await User.find({email: data["username"]}, async function (err, document) {
         if (err) {
@@ -264,59 +246,42 @@ app.post('/logIn', async function (req, res, next) {
 
         if (document.length > 0 && encrypted == document[0].password) {
           var doc = document[0];
-          updateWithLogIn(doc.tasks, req);
-          res.redirect('http://'+req.hostname);
-
-          return createToken(doc);
+          var token = createToken(doc);
+          return res.status(400).send(JSON.stringify({error: false, token: token}));
         } else {
-          message = "Invalid - username doesn't exist or incorrect password";
-          res.redirect('http://'+req.hostname+"/logInN");
+          return res.status(400).send(JSON.stringify({error: true, message: "Invalid - username doesn't exist or incorrect password"}));
         }
       })
     }
   })
 });
 
-//Log-in updates
-function updateWithLogIn(tasks, req) {
-  var token = localStorage.getItem('token');
-  
-  try {
-    var payload = jwt.verify(token, jwtKey);
-    navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/logOut'>Log Out</a></li>";
-    bodyText = taskManager(tasks);
-  } catch(e) {
-    navigationBar = "<li><a href='/'>Home</a></li><li id='right'><a href='/signUp'>Sign Up</a></li><li id='right'><a href='/logIn'>Log In</a></li>";
-    bodyText = "<p class='center'>Please <a href='/logIn'>Log In</a> or <a href='/signUp'>Sign Up</a> to continue</p>";
+//getTasks
+app.post('/getTasks', async function (req, res) {
+  var token = req.body.token;
+  var payload = await jwt.verify(token, jwtKey);
+  var text = taskManager(payload.tasks);
+
+  if (payload.tasks.length == 0) {
+    return res.status(400).send(JSON.stringify({none: true, text: text}));
+  } else {
+    return res.status(400).send(JSON.stringify({none: false, text: text}));
   }
-}
+});
 
 //To-Do list
 function taskManager(tasks) {
-  var list = "";
-
-  //Sorting
-  list += `<div class='sorting'>
-    <form autocomplete='off' method='POST' action='/sortNumberUp'><input type='submit' class='sort' value='0 - &#8734;'></form>
-    <form autocomplete='off' method='POST' action='/sortNumberDown'><input type='submit' class='sort' value='&#8734; - 0'></form>
-    <form autocomplete='off' method='POST' action='/sortLetterUp'><input type='submit' class='sort' value='A - Z'></form>
-    <form autocomplete='off' method='POST' action='/sortLetterDown'><input type='submit' class='sort' value='Z - A'></form>
-  </div>`;
-
-  //Add Task
-  list += "<p class='pTitle'>Add Task</p><form autocomplete='off' method='POST' action='/addTask'><input type='text' name='addTask' id='addTask' required><input type='submit' class='taskSubmit'></form>";
-
-  list += "<p class='pTitle'>Tasks</p><div class='cards'>";
+  var list = "<p class='pTitle'>Tasks</p><div class='cards'>";
   for (i = 0; i < tasks.length; i++) {
     if (tasks[i][1] == false) {
-      list += "<form action='/deleteTask' method='POST' class='cards'><input name='num' class='cardNum' type='text' value='" + (i + 1) + "' readonly><input name='card' class='card' type='text' value='" + tasks[i][0] + "' readonly><input name='sub' class='cardSubmit' type='submit' value='Delete'></form>";
+      list += "<form action='/deleteTask' method='POST' class='cards'><input name='num' class='cardNum' type='text' value='" + (i + 1) + "' readonly><input name='card' class='card' type='text' value='" + tasks[i][0] + "' readonly><button class='cardSubmit' name='sub' type='submit'>Delete</button></form>";
     } else {
-      list += "<form action='/deleteTask' method='POST'><input name='num' class='cardNum' type='text' value='" + (i + 1) + "' readonly><input name='card' class='card' style='text-decoration: line-through;' type='text' value='" + tasks[i][0] + "' readonly><input name='sub' class='cardSubmit' type='submit' value='Delete'></form>";
+      list += "<form action='/deleteTask' method='POST'><input name='num' class='cardNum' type='text' value='" + (i + 1) + "' readonly><input name='card' class='card' style='text-decoration: line-through;' type='text' value='" + tasks[i][0] + "' readonly><button class='cardSubmit' name='sub' type='submit'>Delete</button></form>";
     }
   }
 
   if (tasks.length == 0) {
-    list += "<p class='center none'><i class='far fa-folder-open'></i>    No tasks    <i class='far fa-folder-open'></i></p>"
+    list += "<p class='center none'><i class='far fa-folder-open'></i> No tasks <i class='far fa-folder-open'></i></p>"
   }
 
   list += "</div>";
@@ -324,34 +289,30 @@ function taskManager(tasks) {
   return list;
 }
 
-app.post('/addTask', async function (req, res, next) {
-  var item = req.body.addTask;
-
-  var token = localStorage.getItem('token');
+//validate,
+app.post('/addTask', async function (req, res) {
+  var item = req.body.item;
+  var token = req.body.token;
   var payload = jwt.verify(token, jwtKey);
 
   payload.tasks.push([item, false]);
-  createToken(payload);
+  var t = createToken(payload);
 
   //Update doc
   doc = await User.findById(payload._id);
 
   doc.tasks = payload.tasks;
   await doc.save((err, result) => {
-    if (err) {
-      error(res);
-      return;
-    }
+    if (err) {error(res);return;}
   });
-  
-  res.redirect('http://'+req.hostname);
-  updateWithLogIn(payload.tasks, req);
+
+  return res.status(400).send(JSON.stringify({token: t}));
 });
 
-app.post('/deleteTask', async function(req, res, next) {
+//validate, 
+app.post('/deleteTask', async function(req, res) {
   var item = req.body.card;
-  
-  var token = localStorage.getItem('token');
+  var token = req.body.token;
   var payload = jwt.verify(token, jwtKey);
 
   var tempTasks = payload.tasks;
@@ -365,31 +326,23 @@ app.post('/deleteTask', async function(req, res, next) {
 
   //Update doc
   doc = await User.findById(payload._id, (err, kitten) => {
-    if (err) {
-      error(res);
-      return;
-    }
+    if (err) {error(res); return;}
   });
 
   doc.tasks = tempTasks;
   await doc.save((err, result) => {
-    if (err) {
-      error(res);
-      return;
-    }
+    if (err) {error(res); return;}
   });
   
-  createToken(payload);
-
-  updateWithLogIn(payload.tasks, req)
-  res.redirect('http://'+req.hostname);
+  var returnToken = createToken(payload);
+  return res.status(400).send(JSON.stringify({token: returnToken}));
 })
 
-//Click item
-app.post('/clicked', async function(req, res, next) {
+//Click item -  validate,
+app.post('/clicked', async function(req, res) {
   var item = req.body.submit;
+  var token = req.body.token;
 
-  var token = localStorage.getItem('token');
   var payload = jwt.verify(token, jwtKey);
   
   var tempTasks = payload.tasks;
@@ -411,31 +364,25 @@ app.post('/clicked', async function(req, res, next) {
     if (err) error(res);
   })
 
-  createToken(payload)
-  updateWithLogIn(tempTasks, req)
-  res.redirect('http://'+req.hostname+"/");
+  createToken(tempTasks);
 })
 
-//Sorting
-app.post('/sortNumberUp', async function (req, res, next) {
-  var token = localStorage.getItem('token');
+//Sorting - validate, 
+app.post('/sortNumberUp', async function (req, res) {
+  var token = req.body.token;
   var payload = jwt.verify(token, jwtKey);
-
-  updateWithLogIn(payload.tasks, req)
-  res.redirect('http://'+req.hostname);
 });
 
-app.post('/sortNumberDown', async function (req, res, next) {
-  var token = localStorage.getItem('token');
+app.post('/sortNumberDown', async function (req, res) {
+  var token = req.body.token;
   var payload = jwt.verify(token, jwtKey);
 
   var tempTasks = [...payload.tasks];
-  updateWithLogIn(tempTasks.reverse(), req)
-  res.redirect('http://'+req.hostname);
+  //updateWithLogIn(tempTasks.reverse(), req)
 });
 
-app.post('/sortLetterUp', async function (req, res, next) {
-  var token = localStorage.getItem('token');
+app.post('/sortLetterUp', async function (req, res) {
+  var token = req.body.token;
   var payload = jwt.verify(token, jwtKey);
 
   var tempTasks = [...payload.tasks];
@@ -443,12 +390,11 @@ app.post('/sortLetterUp', async function (req, res, next) {
     return x[0].localeCompare(y[0], 'en', { sensitivity: 'base' });
   });
 
-  updateWithLogIn(tempTasks, req)
-  res.redirect('http://'+req.hostname);
+  //updateWithLogIn(tempTasks, req)
 });
 
-app.post('/sortLetterDown', async function (req, res, next) {
-  var token = localStorage.getItem('token');
+app.post('/sortLetterDown', async function (req, res) {
+  var token = req.body.token;
   var payload = jwt.verify(token, jwtKey);
 
   var tempTasks = [...payload.tasks];
@@ -456,24 +402,11 @@ app.post('/sortLetterDown', async function (req, res, next) {
     return x[0].localeCompare(y[0], 'en', { sensitivity: 'base' });
   });
   
-  updateWithLogIn(tempTasks.reverse(), req)
-  res.redirect('http://'+req.hostname);
+  //updateWithLogIn(tempTasks.reverse(), req)
 });
 
 //Set up the program
-app.set('port', process.env.PORT || 5000);
-http.listen(app.get('port'), function() {
-  console.log('listening on port', app.get('port'));
+const port = process.env.PORT || 8080
+app.listen(port, () => {
+  console.log("Server ran!") 
 });
-
-//Change error message
-io.on('connection', function(socket) {
-  socket.emit('change_message', {
-    message: message
-  });
-
-  socket.emit('change_login', {
-    navigationBar: navigationBar,
-    bodyText: bodyText
-  });
-}); 
