@@ -260,13 +260,15 @@ app.post('/logIn', async function (req, res) {
 app.post('/getTasks', async function (req, res) {
   var token = req.body.token;
   var payload = await jwt.verify(token, jwtKey);
-  var text = taskManager(payload.tasks);
+  try {
+    var text = taskManager(payload.tasks);
 
-  if (payload.tasks.length == 0) {
-    return res.status(200).send(JSON.stringify({none: true, text: text}));
-  } else {
-    return res.status(200).send(JSON.stringify({none: false, text: text}));
-  }
+    if (payload.tasks.length == 0) {
+      return res.status(200).send(JSON.stringify({none: true, text: text}));
+    } else {
+      return res.status(200).send(JSON.stringify({none: false, text: text}));
+    }
+  } catch (e) {console.log(e);};
 });
 
 //To-Do list
@@ -326,7 +328,8 @@ app.post('/deleteTask', async function(req, res) {
       if (error) {console.log(error);}
     });
 
-    return res.send(JSON.stringify({token: createToken(doc.tasks)}));
+    var t = createToken(doc);
+    return res.status(200).send(JSON.stringify({token: t}));
   } catch (e) {
     console.log(e);
   }

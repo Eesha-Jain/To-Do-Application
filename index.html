@@ -105,28 +105,27 @@
         }
 
         var cards = document.getElementsByClassName('cardFormOutside');
-        for (var icard = 0; icard < cards.length; icard++) {
-          cards[icard].addEventListener("submit", deleteListener.bind(null, icard), false)
-        }
-      }
-    }
 
-    //DELETE ITEM - LISTENER 
-    function deleteListener(index) {
-      fetch("/deleteTask", {
-        method: "POST",
-        body: JSON.stringify({
-          item: index,
-          token: localStorage.jwt
-        }),
-        headers: {"Content-Type": "application/json"}
-      })
-      .then(req => req.json())
-      .then(res => {
-        console.log("here");
-        localStorage.jwt = res.token;
-        getTasks();
-      }).catch(e => alert(e));
+        [].forEach.call(cards, function(cur, i) {
+          cur.addEventListener("submit", (e) => {
+            e.preventDefault();
+            var index = i;
+            fetch("/deleteTask", {
+              method: "POST",
+              body: JSON.stringify({
+                item: index,
+                token: localStorage.jwt
+              }),
+              headers: {"Content-Type": "application/json"}
+            })
+            .then(req => req.json())
+            .then(res => {
+              localStorage.jwt = res.token;
+              getTasks();
+            }).catch(e => alert(e));
+          })
+        })
+      }
     }
 
     //CLICK ITEM - LISTENER
@@ -141,9 +140,6 @@
       var formClick = document.querySelector(".formItemClicked" + i);
       formClick.addEventListener("submit", async (e) => {
         e.preventDefault();
-
-        alert("inside");
-        
         try {
           const req = await fetch("/clicked", {
             method: "POST",
