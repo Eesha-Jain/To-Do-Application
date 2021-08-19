@@ -145,7 +145,7 @@ app.post('/signUp', async function (req, res) {
                 }
               });
               
-              return res.status(400).send(JSON.stringify({error: false, message: ""}));
+              return res.status(200).send(JSON.stringify({error: false, message: ""}));
             }
           });
         }
@@ -236,7 +236,7 @@ app.post('/logIn', async function (req, res) {
     if (document.length > 0 && encrypted == document[0].password) {
       var doc = document[0];
       var token = createToken(doc);
-      return res.status(400).send(JSON.stringify({error: false, token: token}));
+      return res.status(200).send(JSON.stringify({error: false, token: token}));
     } else {
       await User.find({email: data["username"]}, async function (err, document) {
         if (err) {
@@ -247,7 +247,7 @@ app.post('/logIn', async function (req, res) {
         if (document.length > 0 && encrypted == document[0].password) {
           var doc = document[0];
           var token = createToken(doc);
-          return res.status(400).send(JSON.stringify({error: false, token: token}));
+          return res.status(200).send(JSON.stringify({error: false, token: token}));
         } else {
           return res.status(400).send(JSON.stringify({error: true, message: "Invalid - username doesn't exist or incorrect password"}));
         }
@@ -263,9 +263,9 @@ app.post('/getTasks', async function (req, res) {
   var text = taskManager(payload.tasks);
 
   if (payload.tasks.length == 0) {
-    return res.status(400).send(JSON.stringify({none: true, text: text}));
+    return res.status(200).send(JSON.stringify({none: true, text: text}));
   } else {
-    return res.status(400).send(JSON.stringify({none: false, text: text}));
+    return res.status(200).send(JSON.stringify({none: false, text: text}));
   }
 });
 
@@ -274,9 +274,9 @@ function taskManager(tasks) {
   var list = "<p class='pTitle'>Tasks</p><div class='cards'>";
   for (i = 0; i < tasks.length; i++) {
     if (tasks[i][1] == false) {
-      list += "<form action='/deleteTask' method='POST' class='cards'><input name='num' class='cardNum' type='text' value='" + (i + 1) + "' readonly><input name='card' class='card' type='text' value='" + tasks[i][0] + "' readonly><button class='cardSubmit' name='sub' type='submit'>Delete</button></form>";
+      list += "<form class='cardFormOutside'><input name='num' class='cardNum' type='text' value='" + (i + 1) + "' readonly><input name='card' class='card' type='text' value='" + tasks[i][0] + "' readonly><button class='cardSubmit' name='sub' type='submit'>Delete</button></form>";
     } else {
-      list += "<form action='/deleteTask' method='POST'><input name='num' class='cardNum' type='text' value='" + (i + 1) + "' readonly><input name='card' class='card' style='text-decoration: line-through;' type='text' value='" + tasks[i][0] + "' readonly><button class='cardSubmit' name='sub' type='submit'>Delete</button></form>";
+      list += "<form class='cardFormOutside'><input name='num' class='cardNum' type='text' value='" + (i + 1) + "' readonly><input name='card' class='card' style='text-decoration: line-through;' type='text' value='" + tasks[i][0] + "' readonly><button class='cardSubmit' name='sub' type='submit' name='submit'>Delete</button></form>";
     }
   }
 
@@ -299,43 +299,37 @@ app.post('/addTask', async function (req, res) {
   var t = createToken(payload);
 
   //Update doc
-  doc = await User.findById(payload._id);
+  var doc = await User.findById(payload._id);
 
   doc.tasks = payload.tasks;
   await doc.save((err, result) => {
     if (err) {error(res);return;}
   });
 
-  return res.status(400).send(JSON.stringify({token: t}));
+  return res.status(200).send(JSON.stringify({token: t}));
 });
 
 //validate, 
 app.post('/deleteTask', async function(req, res) {
-  var item = req.body.card;
-  var token = req.body.token;
-  var payload = jwt.verify(token, jwtKey);
+  try {
+    var index = req.body.item;
+    var token = req.body.token;
+    var payload = jwt.verify(token, jwtKey);
+    var tempTasks = payload.tasks;
 
-  var tempTasks = payload.tasks;
-  var index = 0;
+    tempTasks.splice(index, 1);
 
-  while(tempTasks[index][0] != item) {
-    index++;
+    //Update doc
+    var doc = await User.findById(payload._id);
+    doc.tasks = tempTasks;
+    doc.save(function(error, user) {
+      if (error) {console.log(error);}
+    });
+
+    return res.send(JSON.stringify({token: createToken(doc.tasks)}));
+  } catch (e) {
+    console.log(e);
   }
-    
-  tempTasks.splice(index, 1);
-
-  //Update doc
-  doc = await User.findById(payload._id, (err, kitten) => {
-    if (err) {error(res); return;}
-  });
-
-  doc.tasks = tempTasks;
-  await doc.save((err, result) => {
-    if (err) {error(res); return;}
-  });
-  
-  var returnToken = createToken(payload);
-  return res.status(400).send(JSON.stringify({token: returnToken}));
 })
 
 //Click item -  validate,

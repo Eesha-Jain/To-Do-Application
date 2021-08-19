@@ -32,12 +32,12 @@
   <p class="center" id="pleaseLogIn" style="display: block;">Please <a href="/logIn">Log In</a> or <a href="/signUp">Sign Up</a> to continue</p>
 
 	<div class="tasks" id="tasks" style="display: none;">
-		<!--<div class='sorting'>
+		<div class='sorting'>
       <form autocomplete='off' method='POST' action='/sortNumberUp'><button class="sort" type="submit">0 - &#8734;</button></form>
       <form autocomplete='off' method='POST' action='/sortNumberDown'><button class="sort" type="submit">&#8734; - 0</button></form>
       <form autocomplete='off' method='POST' action='/sortLetterUp'><button class="sort" type="submit">A - Z</button></form>
       <form autocomplete='off' method='POST' action='/sortLetterDown'><button class="sort" type="submit">Z - A</button></form>
-    </div>-->
+    </div>
       
     <p class='pTitle'>Add Task</p>
     <form autocomplete='off' id='formAdd'>
@@ -99,11 +99,34 @@
       document.getElementById("tasksGoHere").innerHTML = res.text;
 
       if (!res.none) {
-        var cardsList = document.querySelector(".card");
+        var cardsList = document.getElementsByClassName("card");
         for (var i = 0; i < cardsList.length; i++) {
           cardsList[i].addEventListener("click", listener.bind(null, cardsList, i), false)
         }
+
+        var cards = document.getElementsByClassName('cardFormOutside');
+        for (var icard = 0; icard < cards.length; icard++) {
+          cards[icard].addEventListener("submit", deleteListener.bind(null, icard), false)
+        }
       }
+    }
+
+    //DELETE ITEM - LISTENER 
+    function deleteListener(index) {
+      fetch("/deleteTask", {
+        method: "POST",
+        body: JSON.stringify({
+          item: index,
+          token: localStorage.jwt
+        }),
+        headers: {"Content-Type": "application/json"}
+      })
+      .then(req => req.json())
+      .then(res => {
+        console.log("here");
+        localStorage.jwt = res.token;
+        getTasks();
+      }).catch(e => alert(e));
     }
 
     //CLICK ITEM - LISTENER
