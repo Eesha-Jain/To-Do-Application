@@ -100,12 +100,14 @@
 
       if (!res.none) {
         var cardsList = document.getElementsByClassName("card");
-        for (var i = 0; i < cardsList.length; i++) {
-          cardsList[i].addEventListener("click", listener.bind(null, cardsList, i), false)
-        }
+        [].forEach.call(cardsList, function(cur, i) {
+          cur.addEventListener("click", (e) => {
+            e.preventDefault();
+            listener(i);
+          })
+        })
 
         var cards = document.getElementsByClassName('cardFormOutside');
-
         [].forEach.call(cards, function(cur, i) {
           cur.addEventListener("submit", (e) => {
             e.preventDefault();
@@ -129,33 +131,21 @@
     }
 
     //CLICK ITEM - LISTENER
-    function listener(cardsList, i) {
-      var info = cardsList[i].value;
-      document.getElementById("temp").innerHTML = '<form class="formItemClicked' + i + '"><button id="submitTemp' + i + '" type="submit">' + info + '></button></form>';
-      document.getElementById("submitTemp").click();
-
-      alert("inside11");
-
-      //FORM - CLICKED
-      var formClick = document.querySelector(".formItemClicked" + i);
-      formClick.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        try {
-          const req = await fetch("/clicked", {
-            method: "POST",
-            body: JSON.stringify({
-              submit: document.getElementById('submitTemp' + i).value,
-              token: localStorage.jwt
-            }),
-            headers: {
-              "Content-Type": "application/json"
-            }
-          });
-
-          const res = await req.json();
-          localStorage.jwt = res.token;
-        } catch (err) {alert(err)}
-      }) 
+    async function listener(i) {
+      fetch("/clicked", {
+        method: "POST",
+        body: JSON.stringify({
+          submit: i,
+          token: localStorage.jwt
+        }),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }).then(req => req.json())
+      .then((res) => {
+        localStorage.jwt = res.token;
+        getTasks();
+      }).catch((e) => alert(e));
     }
     
 		//UPDATE CODE

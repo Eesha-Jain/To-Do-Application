@@ -337,31 +337,23 @@ app.post('/deleteTask', async function(req, res) {
 
 //Click item -  validate,
 app.post('/clicked', async function(req, res) {
-  var item = req.body.submit;
+  var index = req.body.submit;
   var token = req.body.token;
-
   var payload = jwt.verify(token, jwtKey);
-  
   var tempTasks = payload.tasks;
-  var index = 0;
-
-  while(tempTasks[index][0] != item) {
-    index++;
-  }
 
   tempTasks[index][1] = !tempTasks[index][1];
 
   //Update doc
-  var doc = await User.findById(payload._id, (err, kitten) => {
-    if (err) error(res);
-  });
+  var doc = await User.findById(payload._id);
   doc.tasks = tempTasks;
   
   await doc.save((err, result) => {
-    if (err) error(res);
+    if (err) {error(res)};
   })
 
-  createToken(tempTasks);
+  var t = createToken(doc);
+  return res.status(200).send(JSON.stringify({token: t}));
 })
 
 //Sorting - validate, 
