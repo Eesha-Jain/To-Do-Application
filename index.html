@@ -33,10 +33,10 @@
 
 	<div class="tasks" id="tasks" style="display: none;">
 		<div class='sorting'>
-      <form autocomplete='off' method='POST' action='/sortNumberUp'><button class="sort" type="submit">0 - &#8734;</button></form>
-      <form autocomplete='off' method='POST' action='/sortNumberDown'><button class="sort" type="submit">&#8734; - 0</button></form>
-      <form autocomplete='off' method='POST' action='/sortLetterUp'><button class="sort" type="submit">A - Z</button></form>
-      <form autocomplete='off' method='POST' action='/sortLetterDown'><button class="sort" type="submit">Z - A</button></form>
+      <form autocomplete='off' id="sort0ToI"><button class="sort" type="submit">0 - &#8734;</button></form>
+      <form autocomplete='off' id="sortITo0"><button class="sort" type="submit">&#8734; - 0</button></form>
+      <form autocomplete='off' id="sortAtoZ"><button class="sort" type="submit">A - Z</button></form>
+      <form autocomplete='off' id="sortZtoA"><button class="sort" type="submit">Z - A</button></form>
     </div>
       
     <p class='pTitle'>Add Task</p>
@@ -56,6 +56,75 @@
       localStorage.clear();
       window.location.replace("/");
     }
+
+    //SORTING
+    var sortForm1 = document.getElementById('sort0ToI');
+    sortForm1.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      fetch("/sortNumberUp", {
+        method: "POST",
+        body: JSON.stringify({
+          token: localStorage.jwt
+        }),
+        headers: {"Content-Type": "application/json"}
+      })
+      .then(req => req.json())
+      .then(res => {
+        localStorage.jwt = res.token;
+        getTasks();
+      }).catch(e => alert(e));
+    })
+
+    var sortForm2 = document.getElementById('sortITo0');
+    sortForm2.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      fetch("/sortNumberDown", {
+        method: "POST",
+        body: JSON.stringify({
+          token: localStorage.jwt
+        }),
+        headers: {"Content-Type": "application/json"}
+      })
+      .then(req => req.json())
+      .then(res => {
+        localStorage.jwt = res.token;
+        getTasks();
+      }).catch(e => alert(e));
+    })
+
+    var sortForm3 = document.getElementById('sortAtoZ');
+    sortForm3.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      fetch("/sortLetterUp", {
+        method: "POST",
+        body: JSON.stringify({
+          token: localStorage.jwt
+        }),
+        headers: {"Content-Type": "application/json"}
+      })
+      .then(req => req.json())
+      .then(res => {
+        localStorage.jwt = res.token;
+        getTasks();
+      }).catch(e => alert(e));
+    })
+
+    var sortForm4 = document.getElementById('sortZtoA');
+    sortForm4.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      fetch("/sortLetterDown", {
+        method: "POST",
+        body: JSON.stringify({
+          token: localStorage.jwt
+        }),
+        headers: {"Content-Type": "application/json"}
+      })
+      .then(req => req.json())
+      .then(res => {
+        localStorage.jwt = res.token;
+        getTasks();
+      }).catch(e => alert(e));
+    })
 
     //ADD TASKS
     var formAdd = document.querySelector("#formAdd");

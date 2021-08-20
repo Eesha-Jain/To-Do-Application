@@ -311,7 +311,7 @@ app.post('/addTask', async function (req, res) {
   return res.status(200).send(JSON.stringify({token: t}));
 });
 
-//validate, 
+//deleteTask
 app.post('/deleteTask', async function(req, res) {
   try {
     var index = req.body.item;
@@ -335,7 +335,7 @@ app.post('/deleteTask', async function(req, res) {
   }
 })
 
-//Click item -  validate,
+//Click item
 app.post('/clicked', async function(req, res) {
   var index = req.body.submit;
   var token = req.body.token;
@@ -360,38 +360,48 @@ app.post('/clicked', async function(req, res) {
 app.post('/sortNumberUp', async function (req, res) {
   var token = req.body.token;
   var payload = jwt.verify(token, jwtKey);
+  var doc = await User.findById(payload._id);
+  var t = createToken(doc);
+  return res.status(200).send(JSON.stringify({token: t}));
 });
 
 app.post('/sortNumberDown', async function (req, res) {
   var token = req.body.token;
   var payload = jwt.verify(token, jwtKey);
-
-  var tempTasks = [...payload.tasks];
-  //updateWithLogIn(tempTasks.reverse(), req)
+  var doc = await User.findById(payload._id);
+  doc.tasks = doc.tasks.reverse();
+  var t = createToken(doc);
+  return res.status(200).send(JSON.stringify({token: t}));
 });
 
 app.post('/sortLetterUp', async function (req, res) {
   var token = req.body.token;
   var payload = jwt.verify(token, jwtKey);
+  var doc = await User.findById(payload._id);
 
-  var tempTasks = [...payload.tasks];
+  var tempTasks = [...doc.tasks];
   tempTasks = tempTasks.sort((x, y) => {
     return x[0].localeCompare(y[0], 'en', { sensitivity: 'base' });
   });
 
-  //updateWithLogIn(tempTasks, req)
+  doc.tasks = tempTasks;
+  var t = createToken(doc);
+  return res.status(200).send(JSON.stringify({token: t}));
 });
 
 app.post('/sortLetterDown', async function (req, res) {
   var token = req.body.token;
   var payload = jwt.verify(token, jwtKey);
+  var doc = await User.findById(payload._id);
 
-  var tempTasks = [...payload.tasks];
+  var tempTasks = [...doc.tasks];
   tempTasks = tempTasks.sort((x, y) => {
     return x[0].localeCompare(y[0], 'en', { sensitivity: 'base' });
   });
-  
-  //updateWithLogIn(tempTasks.reverse(), req)
+
+  doc.tasks = tempTasks.reverse();
+  var t = createToken(doc);
+  return res.status(200).send(JSON.stringify({token: t}));
 });
 
 //Set up the program
